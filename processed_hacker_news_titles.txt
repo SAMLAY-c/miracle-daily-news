@@ -1,0 +1,10 @@
+A Love Letter to FreeBSD
+Advent of Code 2025
+Advent of Sysadmin 2025
+Algorithms for Optimization [pdf]
+Bricklink suspends Marketplace operations in 35 countries
+Is America's jobs market nearing a cliff?
+LLVM-MOS – Clang LLVM fork targeting the 6502
+Migrating Dillo from GitHub
+Windows drive letters are not limited to A-Z
+Writing a good Claude.md
