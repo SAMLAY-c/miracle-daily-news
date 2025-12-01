@@ -58,21 +58,57 @@ def get_tenant_token():
         return None
 
 def get_hn_news(limit=NEWS_LIMIT):
-    """抓取 Hacker News 热门新闻"""
+    """抓取 Hacker News 热门新闻（带去重功能）"""
     print(f"📡 正在抓取 Top {limit} 条新闻...")
     try:
-        # 获取 Top Stories ID 列表
-        top_ids = requests.get("https://hacker-news.firebaseio.com/v0/topstories.json").json()[:limit]
+        # 读取已处理过的新闻标题文件
+        processed_titles = set()
+        processed_file = 'processed_hacker_news_titles.txt'
+
+        if os.path.exists(processed_file):
+            print(f"📖 已找到历史记录，读取 {processed_file}")
+            with open(processed_file, 'r', encoding='utf-8') as f:
+                processed_titles = set(line.strip() for line in f if line.strip())
+
+        # 获取更多新闻以便过滤
+        top_ids = requests.get("https://hacker-news.firebaseio.com/v0/topstories.json").json()[:limit * 2]  # 获取更多以过滤
         stories = []
+        skipped_count = 0
+        processed_count = 0
+
         for tid in top_ids:
-            # 获取单条详情
-            item = requests.get(f"https://hacker-news.firebaseio.com/v0/item/{tid}.json").json()
-            if item and item.get('url'):  # 只保留有链接的新闻
-                stories.append(item)
-        print(f"✅ 成功获取 {len(stories)} 条数据")
-        return stories
+            if len(stories) >= limit:  # 已达到目标数量
+                break
+
+            try:
+                item = requests.get(f"https://hacker-news.firebaseio.com/v0/item/{tid}.json").json()
+                if item and item.get('url') and item.get('title'):
+                    title = item.get('title', '').strip()
+                    # 检查是否已处理过
+                    if title not in processed_titles:
+                        stories.append(item)
+                        # 实时添加到已处理列表
+                        processed_titles.add(title)
+                    else:
+                        skipped_count += 1
+                        processed_count += 1
+            except Exception as e:
+                print(f"⚠️ 获取新闻 {tid} 时出错: {e}")
+                continue
+
+        # 保存新处理的标题到文件
+        if stories:
+            new_titles = [item.get('title', '').strip() for item in stories]
+            print(f"💾 保存 {len(new_titles)} 个新标题到历史记录")
+            with open(processed_file, 'w', encoding='utf-8') as f:
+                for title in sorted(processed_titles.union(new_titles)):
+                    f.write(f"{title}\n")
+
+        print(f"✅ 成功获取 {len(stories)} 条新数据（跳过 {processed_count} 条重复）")
+
+        return stories[:limit]  # 确保返回正确的数量
     except Exception as e:
-        print(f"❌ 抓取 HN 失败: {e}")
+        print(f"❌ 抓取失败: {e}")
         return []
 
 def analyze_and_write(news_items, token):
@@ -86,6 +122,7 @@ def analyze_and_write(news_items, token):
     ai_headers = {"Authorization": f"Bearer {SILICON_KEY}", "Content-Type": "application/json"}
 
     success_count = 0
+    failed_count = 0
 
     for item in news_items:
         title = item.get('title', '无标题')
@@ -120,7 +157,7 @@ def analyze_and_write(news_items, token):
                 "AI推荐": analysis.get('recommendation', '☕️ 随便看看'),  # 单选
                 "HN热度": item.get('score', 0),
                 "发布日期": int(item.get('time', time.time()) * 1000),  # HN发布时间
-                "收藏日期": current_time_ms,  # ✅ 这里是你新加的字段，填入当前时间
+                "收藏日期": current_time_ms,  # 收藏时间
                 "原文链接": {
                     "text": "点击阅读原文",
                     "link": item.get('url')
@@ -136,26 +173,48 @@ def analyze_and_write(news_items, token):
                 success_count += 1
             else:
                 print(f"   ❌ [写入失败] {write_res.get('msg')}")
-                # 调试用：如果失败打印 payload 看格式对不对
-                # print(json.dumps(fields, indent=2, ensure_ascii=False))
+                failed_count += 1
 
         except Exception as e:
             print(f"   ❌ 处理出错: {e}")
+            failed_count += 1
 
         # 避免请求过快
         time.sleep(1)
 
-    print(f"\n🎉 任务结束！共成功写入 {success_count} 条新闻。")
+    print(f"\n🎉 任务结束！")
+    print(f"   ✅ 成功写入: {success_count} 条新闻")
+    print(f"   ❌ 失败: {failed_count} 条新闻")
+    print(f"   📊 处理效率: {success_count}/{len(news_items)}")
+
+def show_processed_history():
+    """显示已处理的历史记录"""
+    processed_file = 'processed_hacker_news_titles.txt'
+    if os.path.exists(processed_file):
+        print(f"📖 {processed_file} 中的已处理标题:")
+        print("=" * 50)
+        with open(processed_file, 'r', encoding='utf-8') as f:
+            for i, line in enumerate(f, 1):
+                if line.strip():
+                    print(f"{i:3d}. {line.strip()}")
+        print("=" * 50)
+    else:
+        print(f"📖 {processed_file} 不存在，这是首次运行")
 
 if __name__ == "__main__":
-    print("🚀 启动自动化情报系统...")
+    print("🚀 Hacker News 飞书自动化情报站 (去重版)")
+    print("=" * 60)
 
-    # 1. 拿 Token
+    # 显示历史记录
+    show_processed_history()
+    print()
+
+    # 1. 获取 Token
     t_token = get_tenant_token()
 
     if t_token:
-        # 2. 爬新闻
-        news_list = get_hn_news(limit=NEWS_LIMIT)  # 默认抓5条，可修改
+        # 2. 爬新闻（带去重）
+        news_list = get_hn_news(limit=NEWS_LIMIT)
 
         if news_list:
             # 3. 分析 + 写入
