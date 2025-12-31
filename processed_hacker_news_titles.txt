@@ -1,10 +1,20 @@
 A Love Letter to FreeBSD
+A series of vignettes from my childhood and early career
+Addressing the adding situation
 Advent of Code 2025
+Advent of Compiler Optimisations 2025
 Advent of Sysadmin 2025
 Algorithms for Optimization [pdf]
+Apple Releases Open Weights Video Model
 Bricklink suspends Marketplace operations in 35 countries
 Is America's jobs market nearing a cliff?
 LLVM-MOS – Clang LLVM fork targeting the 6502
+Learning Music with Strudel
 Migrating Dillo from GitHub
+Nixtml: Static website and blog generator written in Nix
+Python Data Science Handbook
+Show HN: Marmot – Single-binary data catalog (no Kafka, no Elasticsearch)
+What will enter the public domain in 2026?
 Windows drive letters are not limited to A-Z
 Writing a good Claude.md
+YesNotice
